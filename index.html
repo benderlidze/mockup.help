@@ -4,236 +4,212 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>3D Mockup Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #000000;
-      --panel: rgba(24, 24, 27, 0.65);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-hover: rgba(255, 255, 255, 0.16);
-      --accent: #ffffff;
-      --text: #a1a1aa;
-      --text-bright: #ffffff;
-      --surface: rgba(255, 255, 255, 0.03);
-      --surface-hover: rgba(255, 255, 255, 0.06);
-      --radius: 8px;
-      --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --bg: #09090c;
+      --panel: rgba(10, 10, 14, 0.93);
+      --border: rgba(255,255,255,.09);
+      --border-active: rgba(232,160,32,.5);
+      --accent: #e8a020;
+      --accent-glow: rgba(232,160,32,.15);
+      --text: #c0bbb3;
+      --text-dim: rgba(192,187,179,.45);
+      --text-bright: #f0ece6;
+      --surface: rgba(255,255,255,.045);
+      --surface-hover: rgba(255,255,255,.08);
+      --radius: 9px;
+      --body: 'JetBrains Mono', monospace;
+      --head: 'Syne', sans-serif;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: var(--bg); overflow: hidden; font-family: var(--font); -webkit-font-smoothing: antialiased; }
-    #canvas { display: block; width: 100%; height: 100%; outline: none; }
+    html, body { height: 100%; background: var(--bg); overflow: hidden; }
+    #canvas { display: block; width: 100%; height: 100%; }
 
-    /* Panel */
     #panel {
-      position: absolute; top: 16px; left: 16px; z-index: 20;
-      width: 320px; max-height: calc(100vh - 32px);
-      overflow-y: auto; overflow-x: hidden;
-      border-radius: 16px; background: var(--panel);
-      border: 1px solid var(--border);
-      backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);
-      color: var(--text); scrollbar-width: none;
+      position: absolute; top: 14px; left: 14px; z-index: 20;
+      width: 368px; max-height: calc(100vh - 28px);
+      overflow-y: auto; overflow-x: hidden; border-radius: 16px;
+      background: var(--panel); border: 1px solid var(--border);
+      backdrop-filter: blur(22px); font-family: var(--body);
+      color: var(--text); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent;
     }
-    #panel::-webkit-scrollbar { display: none; }
+    .p-header { padding: 14px 14px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .p-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent), 0 0 16px rgba(232,160,32,.3); flex-shrink: 0; }
+    .p-title { font-family: var(--head); font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: var(--text-bright); }
+    .p-sub { font-size: 10px; color: var(--text-dim); margin-left: auto; }
 
-    .p-header {
-      padding: 18px 20px 16px; border-bottom: 1px solid var(--border);
-      font-weight: 600; font-size: 14px; color: var(--text-bright); letter-spacing: -0.01em;
-    }
-
-    /* Sections */
     details { border-bottom: 1px solid var(--border); }
     details:last-child { border-bottom: none; }
     summary {
-      padding: 14px 20px; cursor: pointer; user-select: none; list-style: none;
-      font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;
-      display: flex; justify-content: space-between; align-items: center;
-      transition: color 0.2s;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 14px; cursor: pointer; user-select: none; list-style: none;
+      font-family: var(--head); font-size: 9.5px; font-weight: 700;
+      letter-spacing: .11em; text-transform: uppercase;
+      color: var(--text-dim); transition: color .15s;
     }
     summary::-webkit-details-marker { display: none; }
-    summary:hover { color: var(--text-bright); }
-    summary::after { content: '＋'; font-weight: 300; transition: transform 0.3s; }
-    details[open] summary::after { transform: rotate(45deg); }
-    .sec { padding: 0 20px 20px; display: grid; gap: 12px; }
+    summary:hover { color: var(--text); }
+    details[open] summary { color: var(--accent); }
+    summary::after { content: '▾'; font-size: 11px; transition: transform .2s; }
+    details[open] summary::after { transform: rotate(-180deg); }
+    .sec { padding: 2px 14px 12px; display: grid; gap: 7px; }
 
-    /* Controls */
-    label { display: grid; gap: 6px; font-size: 12px; color: var(--text); }
-    input[type="text"], input[type="number"], select {
-      width: 100%; height: 34px; border-radius: var(--radius);
-      border: 1px solid var(--border); background: var(--surface); color: var(--text-bright);
-      padding: 0 10px; font-size: 12px; font-family: inherit; outline: none; transition: 0.2s;
+    label { display: grid; gap: 4px; font-size: 10.5px; color: var(--text-dim); }
+    input[type="file"], input[type="number"], input[type="text"], select {
+      width: 100%; min-height: 36px; border-radius: var(--radius); border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); padding: 7px 10px; font-size: 11.5px;
+      font-family: var(--body); outline: none; transition: border-color .15s, background .15s;
     }
-    input:focus, select:focus { border-color: var(--border-hover); background: var(--surface-hover); }
-    input[type="color"] {
-      width: 100%; height: 34px; border-radius: var(--radius);
-      border: 1px solid var(--border); background: var(--surface); padding: 2px; cursor: pointer;
-    }
+    input:focus, select:focus { border-color: var(--border-active); background: var(--accent-glow); }
+    input[type="color"] { width: 100%; min-height: 36px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); padding: 3px 4px; cursor: pointer; }
+    input[type="range"] { width: 100%; -webkit-appearance: none; height: 3px; border-radius: 2px; background: var(--border); outline: none; cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 5px var(--accent); }
     
-    input[type="range"] {
-      width: 100%; -webkit-appearance: none; background: transparent; height: 16px; cursor: pointer;
-    }
-    input[type="range"]::-webkit-slider-runnable-track {
-      width: 100%; height: 2px; background: var(--border); border-radius: 1px;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%;
-      background: var(--text-bright); margin-top: -5px; transition: transform 0.1s;
-    }
-    input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.2); }
-
     button {
-      height: 34px; border-radius: var(--radius);
-      border: 1px solid var(--border); background: var(--surface);
-      color: var(--text-bright); font-size: 12px; font-family: inherit; font-weight: 500;
-      cursor: pointer; transition: 0.2s; white-space: nowrap;
+      min-height: 34px; border-radius: var(--radius); border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); padding: 7px 10px;
+      font-size: 11px; font-family: var(--body); cursor: pointer; transition: background .15s, border-color .15s, color .15s; white-space: nowrap;
     }
-    button:hover { background: var(--surface-hover); border-color: var(--border-hover); }
-    button.primary { background: var(--text-bright); color: #000; border: none; font-weight: 600; height: 38px; }
-    button.primary:hover { background: #e4e4e7; }
-    button.danger:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05); }
-    button.act { background: var(--text-bright); color: #000; border-color: var(--text-bright); }
+    button:hover { background: var(--surface-hover); color: var(--text-bright); border-color: rgba(255,255,255,.18); }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #0a0806; font-family: var(--head); font-size: 13px; font-weight: 800; min-height: 40px; letter-spacing: -.01em; }
+    button.primary:hover { background: #f5ae38; }
+    button.act { background: var(--accent-glow); border-color: var(--border-active); color: var(--accent); }
+    button.danger { border-color: rgba(255,70,70,.25); }
+    button.danger:hover { background: rgba(255,70,70,.1); border-color: rgba(255,70,70,.45); color: #ff8080; }
 
-    .row { display: flex; gap: 8px; }
-    .row > * { flex: 1; min-width: 0; }
+    .row { display: flex; gap: 6px; } .row > * { flex: 1; }
+    .chips { display: flex; gap: 4px; }
+    .chip { flex: 1; padding: 5px 8px; border-radius: 999px; border: 1px solid var(--border); background: transparent; font-size: 10px; font-family: var(--body); cursor: pointer; color: var(--text-dim); min-height: 28px; transition: all .15s; }
+    .chip:hover { color: var(--text); border-color: rgba(255,255,255,.18); }
+    .chip.active { background: var(--accent-glow); border-color: var(--border-active); color: var(--accent); font-weight: 500; }
 
-    /* Dropzones */
-    .dz {
-      border: 1px dashed var(--border); border-radius: var(--radius);
-      padding: 20px 10px; text-align: center; font-size: 12px;
-      color: var(--text); cursor: pointer; transition: 0.2s; position: relative;
-    }
-    .dz:hover, .dz.over { border-color: var(--text-bright); color: var(--text-bright); background: var(--surface); }
-    .dz input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-    .dz-sub { font-size: 10px; opacity: 0.6; margin-top: 4px; }
+    .tog-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text); gap: 8px; }
+    .tog { position: relative; width: 30px; height: 17px; flex-shrink: 0; }
+    .tog input { opacity: 0; width: 0; height: 0; }
+    .tok { position: absolute; inset: 0; border-radius: 99px; cursor: pointer; background: var(--surface); border: 1px solid var(--border); transition: background .2s, border-color .2s; }
+    .tog input:checked ~ .tok { background: var(--accent-glow); border-color: var(--border-active); }
+    .tok::after { content: ''; position: absolute; left: 2px; top: 50%; transform: translateY(-50%); width: 11px; height: 11px; border-radius: 50%; background: var(--text-dim); transition: left .2s, background .2s; }
+    .tog input:checked ~ .tok::after { left: calc(100% - 13px); background: var(--accent); }
 
-    /* Sliders & Toggles */
-    .sl { display: grid; grid-template-columns: 1fr 36px; align-items: center; gap: 12px; }
-    .sv { font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
-    
-    .tog-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
-    .tog { position: relative; width: 32px; height: 18px; cursor: pointer; }
-    .tog input { display: none; }
-    .tok { position: absolute; inset: 0; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); transition: 0.2s; }
-    .tok::after { content: ''; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--text); transition: 0.2s; }
-    .tog input:checked ~ .tok { background: var(--text-bright); border-color: var(--text-bright); }
-    .tog input:checked ~ .tok::after { left: 16px; background: #000; }
-
-    /* List */
-    .mesh-list {
-      max-height: 120px; overflow-y: auto; border: 1px solid var(--border);
-      border-radius: var(--radius); background: rgba(0,0,0,0.2); scrollbar-width: none;
-    }
-    .mi {
-      padding: 8px 10px; font-size: 11px; border-bottom: 1px solid var(--border);
-      cursor: pointer; display: flex; justify-content: space-between; transition: 0.2s;
-    }
+    .mesh-list { max-height: 108px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); background: rgba(0,0,0,.18); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.08) transparent; }
+    .mi { display: flex; align-items: center; gap: 6px; padding: 5px 8px; font-size: 10px; border-bottom: 1px solid rgba(255,255,255,.04); cursor: pointer; transition: background .1s; }
     .mi:last-child { border-bottom: none; }
     .mi:hover { background: var(--surface); }
-    .mi.sel { background: var(--surface-hover); color: var(--text-bright); }
+    .mi.sel { background: var(--accent-glow); }
+    .mi .mn { color: var(--text-bright); } .mi .mm { color: var(--text-dim); margin-left: auto; font-size: 9px; }
 
-    /* Toasts */
-    #toasts { position: absolute; bottom: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column-reverse; gap: 8px; pointer-events: none; }
-    .toast {
-      padding: 10px 16px; border-radius: 8px; background: rgba(24, 24, 27, 0.9);
-      border: 1px solid var(--border); font-size: 12px; color: var(--text-bright);
-      backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      animation: slideUp 0.3s ease;
-    }
-    .toast.err { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .dz { border: 1px dashed var(--border); border-radius: var(--radius); padding: 14px; text-align: center; font-size: 11px; color: var(--text-dim); cursor: pointer; transition: all .2s; position: relative; }
+    .dz:hover, .dz.over { border-color: var(--border-active); background: var(--accent-glow); color: var(--accent); }
+    .dz input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; min-height: unset; height: 100%; }
+    .dz-icon { font-size: 18px; margin-bottom: 3px; }
+    .dz-sub { font-size: 9.5px; color: var(--text-dim); margin-top: 2px; }
+
+    .sl { display: grid; grid-template-columns: 1fr 36px; align-items: center; gap: 8px; }
+    .sv { font-size: 11px; color: var(--accent); text-align: right; }
+
+    #toasts { position: absolute; bottom: 18px; right: 14px; z-index: 100; display: flex; flex-direction: column-reverse; gap: 5px; pointer-events: none; }
+    .toast { padding: 9px 13px; border-radius: 9px; background: rgba(10,10,14,.96); border: 1px solid var(--border); font-family: var(--body); font-size: 11px; color: var(--text); backdrop-filter: blur(12px); max-width: 260px; animation: tin .22s ease; }
+    .toast.ok { border-color: rgba(0,200,120,.35); color: #00c878; } .toast.err { border-color: rgba(255,70,70,.35); color: #ff8080; } .toast.inf { border-color: var(--border-active); color: var(--accent); }
+    @keyframes tin { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
+    .kbs { display: flex; flex-wrap: wrap; gap: 4px; }
+    kbd { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); font-size: 10px; font-family: var(--body); color: var(--text-dim); } kbd b { color: var(--accent); }
+    .hint { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 7px 14px; border-radius: 999px; background: rgba(9,9,12,.85); border: 1px solid var(--border); font-family: var(--body); font-size: 9.5px; color: var(--text-dim); white-space: nowrap; backdrop-filter: blur(12px); }
   </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
 
 <div id="panel">
-  <div class="p-header">Mockup Studio</div>
+  <div class="p-header">
+    <div class="p-dot"></div>
+    <div class="p-title">3D Mockup Studio</div>
+    <div class="p-sub">GLB · WebGL</div>
+  </div>
 
   <details open>
     <summary>Model</summary>
     <div class="sec">
       <div class="dz" id="modelDZ">
-        <div>Drop GLB / GLTF</div>
-        <div class="dz-sub">or click to browse</div>
+        <div class="dz-icon">⬡</div><div>Drop GLB / GLTF here</div><div class="dz-sub">or click to browse</div>
         <input id="fileInput" type="file" accept=".glb,.gltf" />
       </div>
-      <div class="row">
-        <button id="resetBtn">Reset</button>
-        <button id="fitBtn">Fit</button>
-      </div>
+      <div class="row"><button id="resetBtn">↺ Reset</button><button id="fitBtn">⊡ Fit</button><button id="centerBtn">⊕ Center</button></div>
     </div>
   </details>
 
   <details open>
-    <summary>Background</summary>
+    <summary>Scene &amp; Meshes</summary>
     <div class="sec">
-      <label>Mode
-        <select id="bgMode">
-          <option value="transparent">Transparent</option>
-          <option value="solid">Solid color</option>
-        </select>
-      </label>
-      <label id="colorRow" style="display:none">Color
-        <input id="bgColor1" type="color" value="#000000" />
-      </label>
-    </div>
-  </details>
-
-  <details open>
-    <summary>Screen Texture</summary>
-    <div class="sec">
-      <div class="dz" id="screenDZ">
-        <div>Drop Screenshot</div>
-        <div class="dz-sub">PNG / JPG / WebP</div>
-        <input id="screenInput" type="file" accept="image/png,image/jpeg,image/webp" />
-      </div>
-      
-      <label>Rotation
-        <div class="sl">
-          <input id="screenRotation" type="range" min="0" max="360" step="1" value="0" />
-          <span class="sv" id="screenRotVal">0°</span>
-        </div>
-      </label>
-
+      <div class="row"><button id="pickModeBtn">◎ Pick: OFF</button><button id="highlightBtn" class="act">⬡ Outline: ON</button></div>
+      <div id="meshList" class="mesh-list"><div class="mi" style="color:var(--text-dim)">No model loaded</div></div>
       <div class="row">
-        <button id="fitCoverBtn" class="act">Cover</button>
-        <button id="fitContainBtn">Contain</button>
-        <button id="fitStretchBtn">Stretch</button>
+        <label>Mesh name<input id="meshName" type="text" placeholder="screen" value="screen" /></label>
+        <label>Material name<input id="materialName" type="text" placeholder="screen" value="screen" /></label>
       </div>
-      
-      <div class="row">
-        <button id="applyScreenBtn">Apply</button>
-        <button id="clearScreenBtn" class="danger">Clear</button>
-      </div>
-
-      <details style="border:none; margin-top: 4px; border-radius: 8px; background: var(--surface);">
-        <summary style="font-size: 10px; padding: 10px;">Target Mesh Selection</summary>
-        <div class="sec" style="padding-top: 0; gap: 8px;">
-          <div id="meshList" class="mesh-list"><div class="mi">No model loaded</div></div>
-          <label>Mesh Name<input id="meshName" type="text" value="screen" /></label>
-          <label>Material Name<input id="materialName" type="text" value="screen" /></label>
-          <div class="row">
-            <button id="pickModeBtn">Pick: OFF</button>
-            <button id="highlightBtn" class="act">Outline: ON</button>
-          </div>
-        </div>
-      </details>
     </div>
   </details>
 
   <details>
-    <summary>Environment</summary>
+    <summary>Background</summary>
+    <div class="sec">
+      <label>Mode
+        <select id="bgMode">
+          <option value="solid">Solid color</option>
+          <option value="transparent">Transparent</option>
+          <option value="gradient">Gradient</option>
+        </select>
+      </label>
+      <div class="row">
+        <label>Color 1<input id="bgColor1" type="color" value="#0b0b0f" /></label>
+        <label>Color 2<input id="bgColor2" type="color" value="#121a33" /></label>
+      </div>
+      <label>Gradient direction
+        <select id="gradientDir">
+          <option value="vertical">Vertical</option><option value="horizontal">Horizontal</option><option value="diagonal">Diagonal</option>
+        </select>
+      </label>
+      <div class="dz" id="bgDZ" style="padding:10px">
+        <div style="font-size:10px">Drop background image</div>
+        <input id="bgImageInput" type="file" accept="image/png,image/jpeg,image/webp" />
+      </div>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Lighting &amp; Environment</summary>
     <div class="sec">
       <label>Exposure
-        <div class="sl">
-          <input id="exposureSlider" type="range" min="0.2" max="3.0" step="0.05" value="1.08" />
-          <span class="sv" id="exposureVal">1.08</span>
-        </div>
+        <div class="sl"><input id="exposureSlider" type="range" min="0.2" max="3.0" step="0.05" value="1.08" /><span class="sv" id="exposureVal">1.08</span></div>
       </label>
-      <label>Ambient
-        <div class="sl">
-          <input id="ambientSlider" type="range" min="0" max="3" step="0.05" value="1.35" />
-          <span class="sv" id="ambientVal">1.35</span>
-        </div>
+      <label>Direct Light intensity
+        <div class="sl"><input id="ambientSlider" type="range" min="0" max="3" step="0.05" value="1.35" /><span class="sv" id="ambientVal">1.35</span></div>
+      </label>
+      
+      <div style="border-top: 1px solid var(--border); margin: 6px 0;"></div>
+      
+      <label>Environment intensity (HDRI)</label>
+      <div class="sl"><input id="envIntSlider" type="range" min="0" max="3" step="0.05" value="1.0" /><span class="sv" id="envIntVal">1.00</span></div>
+
+      <div class="dz" id="hdriDZ" style="padding:10px; margin-top:4px;">
+        <div style="font-size:10px">Drop HDRI (.hdr) for light</div>
+        <input id="hdriInput" type="file" accept=".hdr" />
+      </div>
+
+      <div class="tog-row">
+        <span>Use HDRI as Background</span>
+        <label class="tog"><input id="hdriBgToggle" type="checkbox" /><div class="tok"></div></label>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); margin: 6px 0;"></div>
+
+      <label>Standard preset
+        <select id="envPreset">
+          <option value="room">Room (default)</option><option value="neutral">Neutral studio</option><option value="dramatic">Dramatic</option>
+        </select>
       </label>
       <div class="tog-row">
         <span>Auto-rotate</span>
@@ -243,18 +219,38 @@
   </details>
 
   <details open>
-    <summary>Export (Transparent PNG)</summary>
+    <summary>Screen Texture</summary>
+    <div class="sec">
+      <div class="dz" id="screenDZ">
+        <div class="dz-icon">▣</div><div>Drop screen image here</div><div class="dz-sub">PNG / JPG / WebP</div>
+        <input id="screenInput" type="file" accept="image/png,image/jpeg,image/webp" />
+      </div>
+      <div class="chips">
+        <button class="chip active" id="fitCoverBtn">Cover</button><button class="chip" id="fitContainBtn">Contain</button><button class="chip" id="fitStretchBtn">Stretch</button>
+      </div>
+      <div class="row"><button id="applyScreenBtn">✓ Apply</button><button id="clearScreenBtn" class="danger">✕ Clear</button></div>
+    </div>
+  </details>
+
+  <details>
+    <summary>Export</summary>
     <div class="sec">
       <div class="row">
-        <label>Width<input id="exportWidth" type="number" value="2048" /></label>
-        <label>Height<input id="exportHeight" type="number" value="2048" /></label>
+        <label>Width<input id="exportWidth" type="number" min="256" step="1" value="2048" /></label>
+        <label>Height<input id="exportHeight" type="number" min="256" step="1" value="2048" /></label>
       </div>
-      <button id="exportBtn" class="primary">Export PNG</button>
+      <div class="row"><button id="preset1Btn">1080p</button><button id="preset2Btn">2K</button><button id="preset4Btn">4K</button></div>
+      <div class="tog-row">
+        <span>Transparent PNG</span>
+        <label class="tog"><input id="transparentExport" type="checkbox" checked /><div class="tok"></div></label>
+      </div>
+      <button id="exportBtn" class="primary">↓ Export PNG</button>
     </div>
   </details>
 </div>
 
 <div id="toasts"></div>
+<div class="hint">Drag → rotate · Scroll → zoom · Right drag → pan</div>
 
 <script type="importmap">
   {"imports":{"three":"https://unpkg.com/three@0.165.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.165.0/examples/jsm/"}}
