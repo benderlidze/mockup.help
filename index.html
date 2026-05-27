@@ -4,253 +4,220 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>3D Mockup Studio</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #09090c;
-      --panel: rgba(10, 10, 14, 0.93);
-      --border: rgba(255,255,255,.09);
-      --border-active: rgba(232,160,32,.5);
-      --accent: #e8a020;
-      --accent-glow: rgba(232,160,32,.15);
-      --text: #c0bbb3;
-      --text-dim: rgba(192,187,179,.45);
-      --text-bright: #f0ece6;
-      --surface: rgba(255,255,255,.045);
-      --surface-hover: rgba(255,255,255,.08);
-      --radius: 9px;
-      --body: 'JetBrains Mono', monospace;
-      --head: 'Syne', sans-serif;
+      --bg:    #0d0d10;
+      --panel: #111116;
+      --line:  rgba(255,255,255,.07);
+      --t0:    rgba(255,255,255,.85);
+      --t1:    rgba(255,255,255,.48);
+      --t2:    rgba(255,255,255,.2);
+      --hi:    rgba(255,255,255,.07);
+      --hi2:   rgba(255,255,255,.12);
+      --r:     5px;
+      --f:     'DM Mono', monospace;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: var(--bg); overflow: hidden; }
-    #canvas { display: block; width: 100%; height: 100%; }
 
+    #canvas {
+      display: block;
+      width: 100%; height: 100%;
+      /* ensure the canvas itself always catches pointer events */
+      touch-action: none;
+    }
+
+    /* ── Panel ── */
     #panel {
       position: absolute; top: 14px; left: 14px; z-index: 20;
-      width: 368px; max-height: calc(100vh - 28px);
-      overflow-y: auto; overflow-x: hidden; border-radius: 16px;
-      background: var(--panel); border: 1px solid var(--border);
-      backdrop-filter: blur(22px); font-family: var(--body);
-      color: var(--text); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent;
+      width: 240px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+      font-family: var(--f);
+      /* panel must NOT intercept pointer events that land on the canvas */
+      pointer-events: auto;
     }
-    .p-header { padding: 14px 14px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
-    .p-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent), 0 0 16px rgba(232,160,32,.3); flex-shrink: 0; }
-    .p-title { font-family: var(--head); font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: var(--text-bright); }
-    .p-sub { font-size: 10px; color: var(--text-dim); margin-left: auto; }
 
-    details { border-bottom: 1px solid var(--border); }
-    details:last-child { border-bottom: none; }
-    summary {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 9px 14px; cursor: pointer; user-select: none; list-style: none;
-      font-family: var(--head); font-size: 9.5px; font-weight: 700;
-      letter-spacing: .11em; text-transform: uppercase;
-      color: var(--text-dim); transition: color .15s;
-    }
-    summary::-webkit-details-marker { display: none; }
-    summary:hover { color: var(--text); }
-    details[open] summary { color: var(--accent); }
-    summary::after { content: '▾'; font-size: 11px; transition: transform .2s; }
-    details[open] summary::after { transform: rotate(-180deg); }
-    .sec { padding: 2px 14px 12px; display: grid; gap: 7px; }
+    .hdr { display: flex; align-items: center; justify-content: space-between; }
+    .hdr-title { font-size: 11.5px; color: var(--t0); letter-spacing: -.01em; }
+    #status { font-size: 10px; color: var(--t2); transition: color .3s; }
+    #status.ok  { color: rgba(80,210,130,.75); }
+    #status.err { color: rgba(210,90,90,.75); }
 
-    label { display: grid; gap: 4px; font-size: 10.5px; color: var(--text-dim); }
-    input[type="file"], input[type="number"], input[type="text"], select {
-      width: 100%; min-height: 36px; border-radius: var(--radius); border: 1px solid var(--border);
-      background: var(--surface); color: var(--text); padding: 7px 10px; font-size: 11.5px;
-      font-family: var(--body); outline: none; transition: border-color .15s, background .15s;
+    .sep { height: 1px; background: var(--line); }
+
+    .lbl {
+      font-size: 9.5px; color: var(--t2);
+      letter-spacing: .08em; text-transform: uppercase;
     }
-    input:focus, select:focus { border-color: var(--border-active); background: var(--accent-glow); }
-    input[type="color"] { width: 100%; min-height: 36px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); padding: 3px 4px; cursor: pointer; }
-    input[type="range"] { width: 100%; -webkit-appearance: none; height: 3px; border-radius: 2px; background: var(--border); outline: none; cursor: pointer; }
-    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 5px var(--accent); }
-    
+
+    /* segmented control */
+    .seg { display: flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+    .seg button {
+      flex: 1; height: 28px; background: none; border: none;
+      border-right: 1px solid var(--line);
+      color: var(--t2); font: 10.5px var(--f); cursor: pointer;
+      transition: background .1s, color .1s;
+    }
+    .seg button:last-child { border-right: none; }
+    .seg button:hover { background: var(--hi); color: var(--t1); }
+    .seg button.on  { background: var(--hi2); color: var(--t0); }
+
+    /* drop zone */
+    .dz {
+      position: relative; height: 42px;
+      border: 1px dashed var(--line); border-radius: var(--r);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; color: var(--t2); cursor: pointer;
+      transition: all .15s;
+      overflow: hidden;
+    }
+    .dz:hover, .dz.over {
+      border-color: rgba(255,255,255,.22);
+      color: var(--t1); background: var(--hi);
+    }
+    .dz input[type="file"] {
+      position: absolute; inset: 0; opacity: 0;
+      cursor: pointer; height: 100%;
+    }
+
+    #bgColorWrap { display: none; }
+    #bgColorPick {
+      width: 100%; height: 30px;
+      border: 1px solid var(--line); border-radius: var(--r);
+      background: var(--hi); padding: 3px; cursor: pointer;
+    }
+
+    /* generic button */
     button {
-      min-height: 34px; border-radius: var(--radius); border: 1px solid var(--border);
-      background: var(--surface); color: var(--text); padding: 7px 10px;
-      font-size: 11px; font-family: var(--body); cursor: pointer; transition: background .15s, border-color .15s, color .15s; white-space: nowrap;
+      font: 10.5px var(--f); cursor: pointer; border-radius: var(--r);
+      border: 1px solid var(--line); background: var(--hi); color: var(--t1);
+      transition: background .1s, color .1s;
     }
-    button:hover { background: var(--surface-hover); color: var(--text-bright); border-color: rgba(255,255,255,.18); }
-    button.primary { background: var(--accent); border-color: var(--accent); color: #0a0806; font-family: var(--head); font-size: 13px; font-weight: 800; min-height: 40px; letter-spacing: -.01em; }
-    button.primary:hover { background: #f5ae38; }
-    button.act { background: var(--accent-glow); border-color: var(--border-active); color: var(--accent); }
-    button.danger { border-color: rgba(255,70,70,.25); }
-    button.danger:hover { background: rgba(255,70,70,.1); border-color: rgba(255,70,70,.45); color: #ff8080; }
+    button:hover { background: var(--hi2); color: var(--t0); }
 
-    .row { display: flex; gap: 6px; } .row > * { flex: 1; }
-    .chips { display: flex; gap: 4px; }
-    .chip { flex: 1; padding: 5px 8px; border-radius: 999px; border: 1px solid var(--border); background: transparent; font-size: 10px; font-family: var(--body); cursor: pointer; color: var(--text-dim); min-height: 28px; transition: all .15s; }
-    .chip:hover { color: var(--text); border-color: rgba(255,255,255,.18); }
-    .chip.active { background: var(--accent-glow); border-color: var(--border-active); color: var(--accent); font-weight: 500; }
+    .row2 { display: flex; gap: 6px; }
+    .row2 > button { flex: 1; height: 30px; }
+    .ghost { background: none; }
+    .ghost:hover { background: var(--hi); }
 
-    .tog-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text); gap: 8px; }
-    .tog { position: relative; width: 30px; height: 17px; flex-shrink: 0; }
-    .tog input { opacity: 0; width: 0; height: 0; }
-    .tok { position: absolute; inset: 0; border-radius: 99px; cursor: pointer; background: var(--surface); border: 1px solid var(--border); transition: background .2s, border-color .2s; }
-    .tog input:checked ~ .tok { background: var(--accent-glow); border-color: var(--border-active); }
-    .tok::after { content: ''; position: absolute; left: 2px; top: 50%; transform: translateY(-50%); width: 11px; height: 11px; border-radius: 50%; background: var(--text-dim); transition: left .2s, background .2s; }
-    .tog input:checked ~ .tok::after { left: calc(100% - 13px); background: var(--accent); }
+    .btn-primary {
+      width: 100%; height: 34px;
+      background: rgba(255,255,255,.88); color: #0d0d10;
+      border-color: transparent; font-size: 11.5px;
+    }
+    .btn-primary:hover { background: #fff; color: #000; }
 
-    .mesh-list { max-height: 108px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); background: rgba(0,0,0,.18); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.08) transparent; }
-    .mi { display: flex; align-items: center; gap: 6px; padding: 5px 8px; font-size: 10px; border-bottom: 1px solid rgba(255,255,255,.04); cursor: pointer; transition: background .1s; }
-    .mi:last-child { border-bottom: none; }
-    .mi:hover { background: var(--surface); }
-    .mi.sel { background: var(--accent-glow); }
-    .mi .mn { color: var(--text-bright); } .mi .mm { color: var(--text-dim); margin-left: auto; font-size: 9px; }
+    /* size row */
+    .size-row { display: flex; align-items: center; gap: 4px; }
+    .size-row input {
+      flex: 1; height: 28px;
+      background: var(--hi); border: 1px solid var(--line);
+      border-radius: var(--r); color: var(--t0);
+      font: 11px var(--f); text-align: center; outline: none;
+      -moz-appearance: textfield;
+    }
+    .size-row input::-webkit-inner-spin-button,
+    .size-row input::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .size-row input:focus { border-color: rgba(255,255,255,.18); }
+    .x-sep { font-size: 10px; color: var(--t2); flex-shrink: 0; }
+    .btn-xs { height: 28px; padding: 0 7px; font-size: 9.5px; flex-shrink: 0; }
 
-    .dz { border: 1px dashed var(--border); border-radius: var(--radius); padding: 14px; text-align: center; font-size: 11px; color: var(--text-dim); cursor: pointer; transition: all .2s; position: relative; }
-    .dz:hover, .dz.over { border-color: var(--border-active); background: var(--accent-glow); color: var(--accent); }
-    .dz input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; min-height: unset; height: 100%; }
-    .dz-icon { font-size: 18px; margin-bottom: 3px; }
-    .dz-sub { font-size: 9.5px; color: var(--text-dim); margin-top: 2px; }
+    /* toasts */
+    #toasts {
+      position: fixed; bottom: 14px; right: 14px; z-index: 100;
+      display: flex; flex-direction: column-reverse; gap: 4px;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 7px 11px; border-radius: 6px;
+      background: rgba(11,11,15,.97); border: 1px solid var(--line);
+      font: 10.5px var(--f); color: var(--t1);
+      backdrop-filter: blur(12px);
+      animation: tin .18s ease; transition: opacity .25s;
+    }
+    .toast.ok  { border-color: rgba(80,200,130,.2);  color: rgba(90,210,140,.9); }
+    .toast.err { border-color: rgba(210,80,80,.2);   color: rgba(210,110,110,.9); }
+    @keyframes tin {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: none; }
+    }
 
-    .sl { display: grid; grid-template-columns: 1fr 36px; align-items: center; gap: 8px; }
-    .sv { font-size: 11px; color: var(--accent); text-align: right; }
-
-    #toasts { position: absolute; bottom: 18px; right: 14px; z-index: 100; display: flex; flex-direction: column-reverse; gap: 5px; pointer-events: none; }
-    .toast { padding: 9px 13px; border-radius: 9px; background: rgba(10,10,14,.96); border: 1px solid var(--border); font-family: var(--body); font-size: 11px; color: var(--text); backdrop-filter: blur(12px); max-width: 260px; animation: tin .22s ease; }
-    .toast.ok { border-color: rgba(0,200,120,.35); color: #00c878; } .toast.err { border-color: rgba(255,70,70,.35); color: #ff8080; } .toast.inf { border-color: var(--border-active); color: var(--accent); }
-    @keyframes tin { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
-
-    .kbs { display: flex; flex-wrap: wrap; gap: 4px; }
-    kbd { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); font-size: 10px; font-family: var(--body); color: var(--text-dim); } kbd b { color: var(--accent); }
-    .hint { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 7px 14px; border-radius: 999px; background: rgba(9,9,12,.85); border: 1px solid var(--border); font-family: var(--body); font-size: 9.5px; color: var(--text-dim); white-space: nowrap; backdrop-filter: blur(12px); }
+    .hint {
+      position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+      font: 10px var(--f); color: var(--t2); pointer-events: none;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
 
 <div id="panel">
-  <div class="p-header">
-    <div class="p-dot"></div>
-    <div class="p-title">3D Mockup Studio</div>
-    <div class="p-sub">GLB · WebGL</div>
+
+  <div class="hdr">
+    <span class="hdr-title">3D Mockup Studio</span>
+    <span id="status">Loading…</span>
   </div>
 
-  <details open>
-    <summary>Model</summary>
-    <div class="sec">
-      <div class="dz" id="modelDZ">
-        <div class="dz-icon">⬡</div><div>Drop GLB / GLTF here</div><div class="dz-sub">or click to browse</div>
-        <input id="fileInput" type="file" accept=".glb,.gltf" />
-      </div>
-      <div class="row"><button id="resetBtn">↺ Reset</button><button id="fitBtn">⊡ Fit</button><button id="centerBtn">⊕ Center</button></div>
-    </div>
-  </details>
+  <div class="sep"></div>
 
-  <details open>
-    <summary>Scene &amp; Meshes</summary>
-    <div class="sec">
-      <div class="row"><button id="pickModeBtn">◎ Pick: OFF</button><button id="highlightBtn" class="act">⬡ Outline: ON</button></div>
-      <div id="meshList" class="mesh-list"><div class="mi" style="color:var(--text-dim)">No model loaded</div></div>
-      <div class="row">
-        <label>Mesh name<input id="meshName" type="text" placeholder="screen" value="screen" /></label>
-        <label>Material name<input id="materialName" type="text" placeholder="screen" value="screen" /></label>
-      </div>
-    </div>
-  </details>
+  <!-- Background -->
+  <span class="lbl">Background</span>
+  <div class="seg">
+    <button class="on" id="bgTransBtn">Transparent</button>
+    <button id="bgSolidBtn">Color</button>
+  </div>
+  <div id="bgColorWrap">
+    <input type="color" id="bgColorPick" value="#0b0b0f" />
+  </div>
 
-  <details>
-    <summary>Background</summary>
-    <div class="sec">
-      <label>Mode
-        <select id="bgMode">
-          <option value="solid">Solid color</option>
-          <option value="transparent">Transparent</option>
-          <option value="gradient">Gradient</option>
-        </select>
-      </label>
-      <div class="row">
-        <label>Color 1<input id="bgColor1" type="color" value="#0b0b0f" /></label>
-        <label>Color 2<input id="bgColor2" type="color" value="#121a33" /></label>
-      </div>
-      <label>Gradient direction
-        <select id="gradientDir">
-          <option value="vertical">Vertical</option><option value="horizontal">Horizontal</option><option value="diagonal">Diagonal</option>
-        </select>
-      </label>
-      <div class="dz" id="bgDZ" style="padding:10px">
-        <div style="font-size:10px">Drop background image</div>
-        <input id="bgImageInput" type="file" accept="image/png,image/jpeg,image/webp" />
-      </div>
-    </div>
-  </details>
+  <div class="sep"></div>
 
-  <details open>
-    <summary>Lighting &amp; Environment</summary>
-    <div class="sec">
-      <label>Exposure
-        <div class="sl"><input id="exposureSlider" type="range" min="0.2" max="3.0" step="0.05" value="1.08" /><span class="sv" id="exposureVal">1.08</span></div>
-      </label>
-      <label>Direct Light intensity
-        <div class="sl"><input id="ambientSlider" type="range" min="0" max="3" step="0.05" value="1.35" /><span class="sv" id="ambientVal">1.35</span></div>
-      </label>
-      
-      <div style="border-top: 1px solid var(--border); margin: 6px 0;"></div>
-      
-      <label>Environment intensity (HDRI)</label>
-      <div class="sl"><input id="envIntSlider" type="range" min="0" max="3" step="0.05" value="1.0" /><span class="sv" id="envIntVal">1.00</span></div>
+  <!-- Screen -->
+  <span class="lbl">Screen</span>
+  <div class="dz" id="screenDZ">
+    <input type="file" id="screenInput" accept="image/png,image/jpeg,image/webp" />
+    <span>↓ Drop image &nbsp;·&nbsp; PNG / JPG / WebP</span>
+  </div>
+  <div class="seg" id="fitSeg">
+    <button class="on" data-v="cover">Cover</button>
+    <button data-v="contain">Contain</button>
+    <button data-v="stretch">Stretch</button>
+  </div>
+  <div class="seg" id="rotSeg">
+    <button class="on" data-v="0">0°</button>
+    <button data-v="90">90°</button>
+    <button data-v="180">180°</button>
+    <button data-v="270">270°</button>
+  </div>
+  <div class="row2">
+    <button id="applyBtn">Apply</button>
+    <button id="clearBtn" class="ghost">Clear</button>
+  </div>
 
-      <div class="dz" id="hdriDZ" style="padding:10px; margin-top:4px;">
-        <div style="font-size:10px">Drop HDRI (.hdr) for light</div>
-        <input id="hdriInput" type="file" accept=".hdr" />
-      </div>
+  <div class="sep"></div>
 
-      <div class="tog-row">
-        <span>Use HDRI as Background</span>
-        <label class="tog"><input id="hdriBgToggle" type="checkbox" /><div class="tok"></div></label>
-      </div>
+  <!-- Export -->
+  <span class="lbl">Export</span>
+  <div class="size-row">
+    <input type="number" id="exportW" value="2048" min="256" />
+    <span class="x-sep">×</span>
+    <input type="number" id="exportH" value="2048" min="256" />
+    <button class="btn-xs" id="p1k">1K</button>
+    <button class="btn-xs" id="p2k">2K</button>
+    <button class="btn-xs" id="p4k">4K</button>
+  </div>
+  <button class="btn-primary" id="exportBtn">Export PNG</button>
 
-      <div style="border-top: 1px solid var(--border); margin: 6px 0;"></div>
-
-      <label>Standard preset
-        <select id="envPreset">
-          <option value="room">Room (default)</option><option value="neutral">Neutral studio</option><option value="dramatic">Dramatic</option>
-        </select>
-      </label>
-      <div class="tog-row">
-        <span>Auto-rotate</span>
-        <label class="tog"><input id="autoRotateToggle" type="checkbox" /><div class="tok"></div></label>
-      </div>
-    </div>
-  </details>
-
-  <details open>
-    <summary>Screen Texture</summary>
-    <div class="sec">
-      <div class="dz" id="screenDZ">
-        <div class="dz-icon">▣</div><div>Drop screen image here</div><div class="dz-sub">PNG / JPG / WebP</div>
-        <input id="screenInput" type="file" accept="image/png,image/jpeg,image/webp" />
-      </div>
-      <div class="chips">
-        <button class="chip active" id="fitCoverBtn">Cover</button><button class="chip" id="fitContainBtn">Contain</button><button class="chip" id="fitStretchBtn">Stretch</button>
-      </div>
-      <div class="row"><button id="applyScreenBtn">✓ Apply</button><button id="clearScreenBtn" class="danger">✕ Clear</button></div>
-    </div>
-  </details>
-
-  <details>
-    <summary>Export</summary>
-    <div class="sec">
-      <div class="row">
-        <label>Width<input id="exportWidth" type="number" min="256" step="1" value="2048" /></label>
-        <label>Height<input id="exportHeight" type="number" min="256" step="1" value="2048" /></label>
-      </div>
-      <div class="row"><button id="preset1Btn">1080p</button><button id="preset2Btn">2K</button><button id="preset4Btn">4K</button></div>
-      <div class="tog-row">
-        <span>Transparent PNG</span>
-        <label class="tog"><input id="transparentExport" type="checkbox" checked /><div class="tok"></div></label>
-      </div>
-      <button id="exportBtn" class="primary">↓ Export PNG</button>
-    </div>
-  </details>
 </div>
 
 <div id="toasts"></div>
-<div class="hint">Drag → rotate · Scroll → zoom · Right drag → pan</div>
+<div class="hint">Drag · Scroll · Right-drag pan</div>
 
 <script type="importmap">
   {"imports":{"three":"https://unpkg.com/three@0.165.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.165.0/examples/jsm/"}}
