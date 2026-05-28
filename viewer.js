@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls }   from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { DRACOLoader }   from 'three/addons/loaders/DRACOLoader.js';
+import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 
 // ── DOM ───────────────────────────────────────────────────────────────
 const canvas      = document.getElementById('canvas');
@@ -14,17 +14,16 @@ const bgColorPick = document.getElementById('bgColorPick');
 const screenDZ    = document.getElementById('screenDZ');
 const screenInput = document.getElementById('screenInput');
 const fitSeg      = document.getElementById('fitSeg');
-const rotSeg      = document.getElementById('rotSeg');
-const applyBtn    = document.getElementById('applyBtn');
-const clearBtn    = document.getElementById('clearBtn');
+const rotSlider   = document.getElementById('rotSlider');
+const rotVal      = document.getElementById('rotVal');
+
+
 const exportW     = document.getElementById('exportW');
 const exportH     = document.getElementById('exportH');
 const exportBtn   = document.getElementById('exportBtn');
 const toastsEl    = document.getElementById('toasts');
 
 // ── Renderer ──────────────────────────────────────────────────────────
-// NOTE: no preserveDrawingBuffer — we render right before toDataURL instead.
-// Removing it avoids the GPU stall that made orbit feel sluggish.
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -46,18 +45,11 @@ pmrem.dispose();
 
 // ── Lights ────────────────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xffffff, 1.35));
-const keyLight  = new THREE.DirectionalLight(0xffffff, 2.2);
-keyLight.position.set(3, 4, 5);
-scene.add(keyLight);
-const fillLight = new THREE.DirectionalLight(0x89a8ff, 0.85);
-fillLight.position.set(-4, 1.5, -2);
-scene.add(fillLight);
-const rimLight  = new THREE.DirectionalLight(0xffffff, 0.65);
-rimLight.position.set(0, 2, -4);
-scene.add(rimLight);
+const keyLight  = new THREE.DirectionalLight(0xffffff, 2.2);  keyLight.position.set(3, 4, 5);     scene.add(keyLight);
+const fillLight = new THREE.DirectionalLight(0x89a8ff, 0.85); fillLight.position.set(-4, 1.5, -2); scene.add(fillLight);
+const rimLight  = new THREE.DirectionalLight(0xffffff, 0.65); rimLight.position.set(0, 2, -4);    scene.add(rimLight);
 
 // ── Controls ──────────────────────────────────────────────────────────
-// enableDamping = false  →  no input lag / sluggishness
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = false;
 controls.minDistance   = 0.5;
@@ -75,23 +67,20 @@ const texLoader = new THREE.TextureLoader();
 
 // ── State ─────────────────────────────────────────────────────────────
 let modelRoot   = null;
-let screenMesh  = null;   // mesh named "screen"
-let originalMat = null;   // saved original material
+let screenMesh  = null;
+let originalMat = null;
 let currentTex  = null;
 let currentFit  = 'cover';
-let screenRot   = 0;      // texture rotation degrees: 0 | 90 | 180 | 270
+let screenRot   = 0;     // -90 | 0 | 90 | 180 | 270
 let bgMode      = 'transparent';
 
-// ── Helpers ───────────────────────────────────────────────────────────
+// ── Toast ─────────────────────────────────────────────────────────────
 function toast(msg, type = '', ms = 2600) {
   const el = document.createElement('div');
-  el.className = `toast ${type}`;
+  el.className   = `toast ${type}`;
   el.textContent = msg;
   toastsEl.appendChild(el);
-  setTimeout(() => {
-    el.style.opacity = '0';
-    setTimeout(() => el.remove(), 280);
-  }, ms);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 280); }, ms);
 }
 
 function setStatus(text, cls = '') {
@@ -111,7 +100,7 @@ function applyBg() {
   }
 }
 
-// ── Model helpers ─────────────────────────────────────────────────────
+// ── Model ─────────────────────────────────────────────────────────────
 function normalizeModel(root) {
   const box  = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
@@ -150,16 +139,12 @@ function findScreenMesh(root) {
   return found;
 }
 
-// ── Load model ────────────────────────────────────────────────────────
 function loadModel(url) {
   setStatus('Loading…');
   gltfLoader.load(
     url,
     (gltf) => {
-      if (modelRoot) {
-        scene.remove(modelRoot);
-        modelRoot.traverse((o) => { o.geometry?.dispose?.(); });
-      }
+      if (modelRoot) { scene.remove(modelRoot); modelRoot.traverse((o) => o.geometry?.dispose?.()); }
       modelRoot = gltf.scene;
       normalizeModel(modelRoot);
       scene.add(modelRoot);
@@ -192,57 +177,39 @@ function fitTex(tex, mode, rotDeg) {
   tex.needsUpdate = true;
   tex.colorSpace  = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-
-  // Rotate the texture around its center
   tex.rotation = rotDeg * (Math.PI / 180);
   tex.center.set(0.5, 0.5);
+  tex.offset.set(0, 0); // center=(0.5,0.5) handles centering; offset stays 0
 
   if (mode === 'stretch') {
-    tex.repeat.set(1, 1);
-    tex.offset.set(0, 0);
+    // -1 on X flips horizontally to correct mirrored UV on screen mesh
+    tex.repeat.set(-1, 1);
     return;
   }
 
   const img = tex.image;
-  if (!img?.width || !img?.height) return;
+  if (!img?.width || !img?.height) { tex.repeat.set(-1, 1); return; }
 
-  // For 90°/270° the image visually swaps dimensions
-  const swapped = rotDeg === 90 || rotDeg === 270;
+  // With center=(0.5,0.5), repeat alone controls crop — no offset adjustment needed
+  const swapped = Math.abs(rotDeg) === 90 || Math.abs(rotDeg) === 270;
   const iw = swapped ? img.height : img.width;
   const ih = swapped ? img.width  : img.height;
-  const ia = iw / ih;     // effective image aspect
-  const sa = 1;           // screen UV aspect (1:1 assumed)
+  const ia = iw / ih;
 
   if (mode === 'cover') {
-    if (ia > sa) {
-      const s = sa / ia;
-      tex.repeat.set(1, s);
-      tex.offset.set(0, (1 - s) / 2);
-    } else {
-      const s = ia / sa;
-      tex.repeat.set(s, 1);
-      tex.offset.set((1 - s) / 2, 0);
-    }
-  } else {
-    // contain
-    if (ia > sa) {
-      const s = ia / sa;
-      tex.repeat.set(1 / s, 1);
-      tex.offset.set((1 - 1/s) / 2, 0);
-    } else {
-      const s = sa / ia;
-      tex.repeat.set(1, 1 / s);
-      tex.offset.set(0, (1 - 1/s) / 2);
-    }
+    if (ia > 1) tex.repeat.set(-1,      1/ia);  // wide image
+    else        tex.repeat.set(-ia,     1   );  // tall image
+  } else { // contain
+    if (ia > 1) tex.repeat.set(-1/ia,  1   );
+    else        tex.repeat.set(-1,     ia  );
   }
+  // Negative repeat.x = horizontal flip to correct the mirrored screen UVs
 }
 
 function applyScreenTex(tex) {
   if (!screenMesh) { toast('Mesh "screen" not found', 'err'); return false; }
   fitTex(tex, currentFit, screenRot);
-  screenMesh.material = new THREE.MeshBasicMaterial({
-    map: tex, side: THREE.FrontSide,
-  });
+  screenMesh.material = new THREE.MeshBasicMaterial({ map: tex, side: THREE.FrontSide });
   screenMesh.material.needsUpdate = true;
   return true;
 }
@@ -255,30 +222,26 @@ function clearScreen() {
   toast('Screen cleared');
 }
 
-// ── Export PNG (always transparent) ───────────────────────────────────
+// ── Export ────────────────────────────────────────────────────────────
 async function exportPNG() {
   const w = Math.max(256, parseInt(exportW.value, 10) || 2048);
   const h = Math.max(256, parseInt(exportH.value, 10) || 2048);
 
-  // Save state
   const oldSz  = new THREE.Vector2(); renderer.getSize(oldSz);
   const oldPR  = renderer.getPixelRatio();
   const oldAsp = camera.aspect;
   const oldBg  = scene.background;
 
-  // Render transparent at target size
   scene.background = null;
   renderer.setClearColor(0x000000, 0);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(1);
   renderer.setSize(w, h, false);
-  renderer.render(scene, camera);   // render right before capture — no preserveDrawingBuffer needed
+  renderer.render(scene, camera); // render right before capture
 
-  // Copy to output canvas (single synchronous call — buffer still valid)
   const out = document.createElement('canvas');
-  out.width  = w;
-  out.height = h;
+  out.width = w; out.height = h;
   out.getContext('2d').drawImage(canvas, 0, 0, w, h);
 
   const a = document.createElement('a');
@@ -286,9 +249,7 @@ async function exportPNG() {
   a.download = `mockup-${w}x${h}.png`;
   a.click();
 
-  // Restore
-  camera.aspect = oldAsp;
-  camera.updateProjectionMatrix();
+  camera.aspect = oldAsp; camera.updateProjectionMatrix();
   renderer.setPixelRatio(oldPR);
   renderer.setSize(oldSz.x, oldSz.y, false);
   scene.background = oldBg;
@@ -318,27 +279,24 @@ function handleScreenFile(file) {
 // Background
 bgTransBtn.addEventListener('click', () => {
   bgMode = 'transparent';
-  bgTransBtn.classList.add('on');
-  bgSolidBtn.classList.remove('on');
+  bgTransBtn.classList.add('on'); bgSolidBtn.classList.remove('on');
   bgColorWrap.style.display = 'none';
   applyBg();
 });
 bgSolidBtn.addEventListener('click', () => {
   bgMode = 'solid';
-  bgSolidBtn.classList.add('on');
-  bgTransBtn.classList.remove('on');
+  bgSolidBtn.classList.add('on'); bgTransBtn.classList.remove('on');
   bgColorWrap.style.display = 'block';
   applyBg();
 });
 bgColorPick.addEventListener('input', applyBg);
 
-// Screen drop
+// Screen drop zone
 screenInput.addEventListener('change', (e) => handleScreenFile(e.target.files?.[0]));
 screenDZ.addEventListener('dragover',  (e) => { e.preventDefault(); screenDZ.classList.add('over'); });
 screenDZ.addEventListener('dragleave', ()  => screenDZ.classList.remove('over'));
 screenDZ.addEventListener('drop', (e) => {
-  e.preventDefault();
-  screenDZ.classList.remove('over');
+  e.preventDefault(); screenDZ.classList.remove('over');
   handleScreenFile(e.dataTransfer.files?.[0]);
 });
 canvas.addEventListener('dragover', (e) => e.preventDefault());
@@ -358,23 +316,30 @@ fitSeg.querySelectorAll('button').forEach((btn) => {
   });
 });
 
-// Screen rotation
-rotSeg.querySelectorAll('button').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    rotSeg.querySelectorAll('button').forEach((b) => b.classList.remove('on'));
-    btn.classList.add('on');
-    screenRot = parseInt(btn.dataset.v, 10);
-    if (currentTex) applyScreenTex(currentTex);
-  });
+// Rotation slider (-270 → 270) with snap at -180, -90, 0, 90, 180
+const SNAP_PTS  = [-180, -90, 0, 90, 180];
+const SNAP_DIST = 8; // degrees
+
+function nearestSnap(v) {
+  for (const s of SNAP_PTS) {
+    if (Math.abs(v - s) <= SNAP_DIST) return s;
+  }
+  return v;
+}
+
+rotSlider.addEventListener('input', () => {
+  let val = parseInt(rotSlider.value, 10);
+  const snapped = nearestSnap(val);
+  if (snapped !== val) {
+    val = snapped;
+    rotSlider.value = snapped; // snap the thumb
+  }
+  screenRot = val;
+  rotVal.textContent = val + '°';
+  if (currentTex) applyScreenTex(currentTex);
 });
 
-// Apply / Clear
-applyBtn.addEventListener('click', () => {
-  if (!currentTex) { toast('No image loaded', 'err'); return; }
-  const ok = applyScreenTex(currentTex);
-  if (ok) toast('Applied', 'ok');
-});
-clearBtn.addEventListener('click', clearScreen);
+
 
 // Size presets
 document.getElementById('p1k').addEventListener('click', () => { exportW.value = 1024; exportH.value = 1024; });
@@ -396,7 +361,7 @@ window.addEventListener('resize', () => {
 applyBg();
 loadModel('/iphone17pro_max.glb');
 
-// ── Render loop ───────────────────────────────────────────────────────
+// ── Loop ──────────────────────────────────────────────────────────────
 (function animate() {
   requestAnimationFrame(animate);
   controls.update();

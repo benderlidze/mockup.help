@@ -21,27 +21,21 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: var(--bg); overflow: hidden; }
 
-    #canvas {
-      display: block;
-      width: 100%; height: 100%;
-      /* ensure the canvas itself always catches pointer events */
-      touch-action: none;
-    }
+    #canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
     /* ── Panel ── */
     #panel {
       position: absolute; top: 14px; left: 14px; z-index: 20;
-      width: 240px;
+      width: 232px;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 10px;
-      padding: 12px;
+      padding: 11px;
       display: flex; flex-direction: column; gap: 8px;
       font-family: var(--f);
-      /* panel must NOT intercept pointer events that land on the canvas */
-      pointer-events: auto;
     }
 
+    /* header */
     .hdr { display: flex; align-items: center; justify-content: space-between; }
     .hdr-title { font-size: 11.5px; color: var(--t0); letter-spacing: -.01em; }
     #status { font-size: 10px; color: var(--t2); transition: color .3s; }
@@ -56,25 +50,30 @@
     }
 
     /* segmented control */
-    .seg { display: flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+    .seg {
+      display: flex;
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      overflow: hidden;
+    }
     .seg button {
-      flex: 1; height: 28px; background: none; border: none;
+      flex: 1; height: 27px;
+      background: none; border: none;
       border-right: 1px solid var(--line);
-      color: var(--t2); font: 10.5px var(--f); cursor: pointer;
+      color: var(--t2); font: 10px var(--f); cursor: pointer;
       transition: background .1s, color .1s;
     }
     .seg button:last-child { border-right: none; }
     .seg button:hover { background: var(--hi); color: var(--t1); }
-    .seg button.on  { background: var(--hi2); color: var(--t0); }
+    .seg button.on    { background: var(--hi2); color: var(--t0); }
 
     /* drop zone */
     .dz {
-      position: relative; height: 42px;
+      position: relative; height: 40px;
       border: 1px dashed var(--line); border-radius: var(--r);
       display: flex; align-items: center; justify-content: center;
-      font-size: 10.5px; color: var(--t2); cursor: pointer;
-      transition: all .15s;
-      overflow: hidden;
+      font-size: 10px; color: var(--t2); cursor: pointer;
+      transition: all .15s; overflow: hidden;
     }
     .dz:hover, .dz.over {
       border-color: rgba(255,255,255,.22);
@@ -85,47 +84,66 @@
       cursor: pointer; height: 100%;
     }
 
+    /* background color picker */
     #bgColorWrap { display: none; }
     #bgColorPick {
-      width: 100%; height: 30px;
+      width: 100%; height: 28px;
       border: 1px solid var(--line); border-radius: var(--r);
       background: var(--hi); padding: 3px; cursor: pointer;
     }
 
     /* generic button */
     button {
-      font: 10.5px var(--f); cursor: pointer; border-radius: var(--r);
+      font: 10px var(--f); cursor: pointer; border-radius: var(--r);
       border: 1px solid var(--line); background: var(--hi); color: var(--t1);
       transition: background .1s, color .1s;
     }
     button:hover { background: var(--hi2); color: var(--t0); }
 
-    .row2 { display: flex; gap: 6px; }
-    .row2 > button { flex: 1; height: 30px; }
-    .ghost { background: none; }
-    .ghost:hover { background: var(--hi); }
 
+
+    /* primary button */
     .btn-primary {
-      width: 100%; height: 34px;
+      width: 100%; height: 32px;
       background: rgba(255,255,255,.88); color: #0d0d10;
-      border-color: transparent; font-size: 11.5px;
+      border-color: transparent; font-size: 11px;
     }
     .btn-primary:hover { background: #fff; color: #000; }
 
-    /* size row */
+
+
+    /* rotation slider */
+    .rot-wrap { display: flex; align-items: center; gap: 8px; }
+    .rot-wrap input[type="range"] {
+      flex: 1; -webkit-appearance: none;
+      height: 2px; background: var(--line); border-radius: 1px;
+      outline: none; cursor: pointer;
+    }
+    .rot-wrap input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 13px; height: 13px;
+      border-radius: 50%; background: rgba(255,255,255,.75);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.12);
+      transition: background .1s;
+    }
+    .rot-wrap input[type="range"]::-webkit-slider-thumb:hover {
+      background: #fff;
+    }
+    #rotVal {
+      font-size: 10px; color: var(--t2); min-width: 32px;
+      text-align: right; flex-shrink: 0;
+    }
     .size-row { display: flex; align-items: center; gap: 4px; }
     .size-row input {
-      flex: 1; height: 28px;
+      flex: 1; min-width: 0; height: 27px;
       background: var(--hi); border: 1px solid var(--line);
       border-radius: var(--r); color: var(--t0);
-      font: 11px var(--f); text-align: center; outline: none;
+      font: 10.5px var(--f); text-align: center; outline: none;
       -moz-appearance: textfield;
     }
     .size-row input::-webkit-inner-spin-button,
     .size-row input::-webkit-outer-spin-button { -webkit-appearance: none; }
     .size-row input:focus { border-color: rgba(255,255,255,.18); }
     .x-sep { font-size: 10px; color: var(--t2); flex-shrink: 0; }
-    .btn-xs { height: 28px; padding: 0 7px; font-size: 9.5px; flex-shrink: 0; }
 
     /* toasts */
     #toasts {
@@ -149,8 +167,7 @@
 
     .hint {
       position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
-      font: 10px var(--f); color: var(--t2); pointer-events: none;
-      white-space: nowrap;
+      font: 10px var(--f); color: var(--t2); pointer-events: none; white-space: nowrap;
     }
   </style>
 </head>
@@ -182,22 +199,18 @@
   <span class="lbl">Screen</span>
   <div class="dz" id="screenDZ">
     <input type="file" id="screenInput" accept="image/png,image/jpeg,image/webp" />
-    <span>↓ Drop image &nbsp;·&nbsp; PNG / JPG / WebP</span>
+    <span>↓ Drop image · PNG / JPG / WebP</span>
   </div>
+
   <div class="seg" id="fitSeg">
     <button class="on" data-v="cover">Cover</button>
     <button data-v="contain">Contain</button>
     <button data-v="stretch">Stretch</button>
   </div>
-  <div class="seg" id="rotSeg">
-    <button class="on" data-v="0">0°</button>
-    <button data-v="90">90°</button>
-    <button data-v="180">180°</button>
-    <button data-v="270">270°</button>
-  </div>
-  <div class="row2">
-    <button id="applyBtn">Apply</button>
-    <button id="clearBtn" class="ghost">Clear</button>
+
+  <div class="rot-wrap">
+    <input type="range" id="rotSlider" min="-270" max="270" step="1" value="0" />
+    <span id="rotVal">0°</span>
   </div>
 
   <div class="sep"></div>
@@ -208,9 +221,11 @@
     <input type="number" id="exportW" value="2048" min="256" />
     <span class="x-sep">×</span>
     <input type="number" id="exportH" value="2048" min="256" />
-    <button class="btn-xs" id="p1k">1K</button>
-    <button class="btn-xs" id="p2k">2K</button>
-    <button class="btn-xs" id="p4k">4K</button>
+  </div>
+  <div class="seg">
+    <button id="p1k">1K</button>
+    <button id="p2k">2K</button>
+    <button id="p4k">4K</button>
   </div>
   <button class="btn-primary" id="exportBtn">Export PNG</button>
 
