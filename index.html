@@ -10,9 +10,9 @@
       --bg:    #0d0d10;
       --panel: #111116;
       --line:  rgba(255,255,255,.07);
-      --t0:    rgba(255,255,255,.85);
-      --t1:    rgba(255,255,255,.48);
-      --t2:    rgba(255,255,255,.2);
+      --t0:    rgba(255,255,255,.95);
+      --t1:    rgba(255,255,255,.72);
+      --t2:    rgba(255,255,255,.42);
       --hi:    rgba(255,255,255,.07);
       --hi2:   rgba(255,255,255,.12);
       --r:     5px;
@@ -165,7 +165,24 @@
       to   { opacity: 1; transform: none; }
     }
 
-    .hint {
+    /* orbit toggle — floats top-right, always on top of panel */
+    #orbitBtn {
+      position: fixed; top: 14px; right: 14px; z-index: 30;
+      width: 34px; height: 34px; border-radius: 8px;
+      background: var(--panel); border: 1px solid var(--line);
+      color: var(--t2); font-size: 15px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s;
+    }
+    #orbitBtn:hover { color: var(--t1); border-color: rgba(255,255,255,.15); }
+    #orbitBtn.active {
+      background: rgba(255,255,255,.12);
+      border-color: rgba(255,255,255,.25);
+      color: var(--t0);
+    }
+    /* when orbit mode is on, show a subtle ring on the canvas */
+    body.orbit-mode #canvas { cursor: grab; }
+    body.orbit-mode #canvas:active { cursor: grabbing; }
       position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
       font: 10px var(--f); color: var(--t2); pointer-events: none; white-space: nowrap;
     }
@@ -231,6 +248,7 @@
 
 </div>
 
+<button id="orbitBtn" title="Orbit everywhere (disables panel)">⊕</button>
 <div id="toasts"></div>
 <div class="hint">Drag · Scroll · Right-drag pan</div>
 

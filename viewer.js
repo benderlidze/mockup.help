@@ -21,6 +21,8 @@ const rotVal      = document.getElementById('rotVal');
 const exportW     = document.getElementById('exportW');
 const exportH     = document.getElementById('exportH');
 const exportBtn   = document.getElementById('exportBtn');
+const orbitBtn    = document.getElementById('orbitBtn');
+const panel       = document.getElementById('panel');
 const toastsEl    = document.getElementById('toasts');
 
 // ── Renderer ──────────────────────────────────────────────────────────
@@ -355,6 +357,14 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+});
+
+// Orbit-everywhere toggle — makes panel click-through so full canvas is draggable
+orbitBtn.addEventListener('click', () => {
+  const on = orbitBtn.classList.toggle('active');
+  panel.style.pointerEvents = on ? 'none' : '';
+  document.body.classList.toggle('orbit-mode', on);
+  toast(on ? 'Orbit mode — panel disabled' : 'Panel re-enabled');
 });
 
 // ── Init ──────────────────────────────────────────────────────────────
