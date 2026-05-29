@@ -24,6 +24,13 @@ const exportBtn   = document.getElementById('exportBtn');
 const orbitBtn    = document.getElementById('orbitBtn');
 const panel       = document.getElementById('panel');
 const toastsEl    = document.getElementById('toasts');
+const devRow      = document.getElementById('devRow');
+
+const DEVICES = {
+  iphone:  { file: '/iphone17pro_max.glb',             label: 'iPhone'  },
+  watch:   { file: '/apple_watch_ultra_-_orange.glb',  label: 'Watch'   },
+  macbook: { file: '/macbook_pro_m3_16_inch_2024.glb', label: 'MacBook' },
+};
 
 // ── Renderer ──────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -129,14 +136,13 @@ function fitCamera(obj) {
 
 function findScreenMesh(root) {
   let found = null;
+  const keys = ['screen', 'display', 'monitor'];
   root.traverse((obj) => {
     if (!obj.isMesh || found) return;
     const name = (obj.name           || '').toLowerCase();
     const mat  = (obj.material?.name || '').toLowerCase();
     const par  = (obj.parent?.name   || '').toLowerCase();
-    if (name.includes('screen') || mat.includes('screen') || par.includes('screen')) {
-      found = obj;
-    }
+    if (keys.some(k => name.includes(k) || mat.includes(k) || par.includes(k))) found = obj;
   });
   return found;
 }
@@ -359,6 +365,23 @@ window.addEventListener('resize', () => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
 
+// Device switcher
+devRow.querySelectorAll('.dev-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const dev = DEVICES[btn.dataset.dev];
+    if (!dev) return;
+    devRow.querySelectorAll('.dev-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Clear current texture state when switching device
+    currentTex?.dispose?.();
+    currentTex  = null;
+    screenRot   = 0;
+    rotSlider.value   = 0;
+    rotVal.textContent = '0°';
+    loadModel(dev.file);
+  });
+});
+
 // Orbit-everywhere toggle — makes panel click-through so full canvas is draggable
 orbitBtn.addEventListener('click', () => {
   const on = orbitBtn.classList.toggle('active');
@@ -369,7 +392,7 @@ orbitBtn.addEventListener('click', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────
 applyBg();
-loadModel('/iphone17pro_max.glb');
+loadModel(DEVICES.iphone.file);
 
 // ── Loop ──────────────────────────────────────────────────────────────
 (function animate() {
