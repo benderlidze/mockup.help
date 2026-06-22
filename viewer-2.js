@@ -22,19 +22,11 @@ const orbitBtn = document.getElementById('orbitBtn');
 const panel = document.getElementById('panel');
 const toastsEl = document.getElementById('toasts');
 const devRow = document.getElementById('devRow');
-const iconDropZone = document.getElementById('iconDropZone');
-const iconFileInput = document.getElementById('iconFileInput');
-const iconList = document.getElementById('iconList');
-const iconCount = document.getElementById('iconCount');
-const iconActions = document.getElementById('iconActions');
-const applyIconToScreenBtn = document.getElementById('applyIconToScreenBtn');
-const clearIconSelBtn = document.getElementById('clearIconSelBtn');
-const hsToggleBtn = document.getElementById('hsToggleBtn');
-const hsPanel = document.getElementById('hsPanel');
-const hsPanelClose = document.getElementById('hsPanelClose');
-const hsGrid = document.getElementById('hsGrid');
-const hsDock = document.getElementById('hsDock');
-const hsTime = document.getElementById('hsTime');
+
+const getPreviewPixelRatio = () => Math.min(
+  Math.max(window.devicePixelRatio || 1, 1.25),
+  2.5,
+);
 
 const DEVICES = {
   iphone: { file: '/iphone17pro_max.glb', label: 'iPhone' },
@@ -42,8 +34,13 @@ const DEVICES = {
   macbook: { file: '/macbook_pro_m3_16_inch_2024.glb', label: 'MacBook' },
 };
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: true,
+  alpha: true,
+  powerPreference: 'high-performance',
+});
+renderer.setPixelRatio(getPreviewPixelRatio());
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -80,16 +77,10 @@ let modelRoot = null;
 let screenMesh = null;
 let originalMat = null;
 let currentTex = null;
+let currentScreenMaterial = null;
 let currentFit = 'cover';
 let screenRot = 0;
 let bgMode = 'transparent';
-
-const ICONS = [];
-let activeIconId = null;
-let currentHomescreenTex = null;
-const ICON_CFG = {
-  cols: 4, rows: 6, wallpaper: '#10131a', topPadRatio: 0.14, leftPadRatio: 0.09, rightPadRatio: 0.09, dockHeightRatio: 0.12, iconGapRatio: 0.032, iconRadiusRatio: 0.22, labelGapRatio: 0.12, labelSizeRatio: 0.08, safeTopRatio: 0.065, safeBottomRatio: 0.045,
-};
 
 function toast(msg, type = '', ms = 2600) {
   const el = document.createElement('div');
@@ -146,6 +137,7 @@ function findScreenMesh(root) {
 function loadModel(url) {
   setStatus('Loading…');
   gltfLoader.load(url, (gltf) => {
+    disposeCurrentScreenMaterial();
     if (modelRoot) { scene.remove(modelRoot); modelRoot.traverse((o) => o.geometry?.dispose?.()); }
     modelRoot = gltf.scene;
     normalizeModel(modelRoot);
@@ -160,7 +152,6 @@ function loadModel(url) {
       toast('Mesh "screen" not found in model', 'err', 5000);
     }
     if (currentTex) applyScreenTex(currentTex);
-    if (currentHomescreenTex) applyScreenTex(currentHomescreenTex);
   }, undefined, (err) => {
     console.error(err);
     setStatus('Load failed', 'err');
@@ -172,6 +163,10 @@ function fitTex(tex, mode, rotDeg) {
   tex.needsUpdate = true;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   tex.rotation = rotDeg * Math.PI / 180;
   tex.center.set(0.5, 0.5);
   tex.offset.set(0, 0);
@@ -189,22 +184,54 @@ function fitTex(tex, mode, rotDeg) {
 function applyScreenTex(tex) {
   if (!screenMesh) { toast('Mesh "screen" not found', 'err'); return false; }
   fitTex(tex, currentFit, screenRot);
-  // UI screenshots are already display-ready sRGB images. Applying the
-  // renderer's ACES tone mapping to them lowers contrast and saturation, so
-  // keep tone mapping for the phone body but bypass it for the display.
-  screenMesh.material = new THREE.MeshBasicMaterial({
-    name: 'Uploaded screen',
-    map: tex,
-    side: THREE.FrontSide,
-    toneMapped: false,
-  });
-  screenMesh.material.needsUpdate = true;
+  disposeCurrentScreenMaterial();
+
+  const makeMaterial = (source) => {
+    // Preserve the model's glass response (roughness, clearcoat and
+    // reflections), while the screenshot supplies the display's own light.
+    if (source?.isMeshStandardMaterial) {
+      const mat = source.clone();
+      mat.name = 'Uploaded screen with glass';
+      mat.map = null;
+      mat.color.set(0x000000);
+      mat.emissiveMap = tex;
+      mat.emissive.set(0xffffff);
+      mat.emissiveIntensity = 1;
+      mat.transparent = false;
+      mat.opacity = 1;
+      mat.depthWrite = true;
+      mat.side = THREE.FrontSide;
+      // ACES remains enabled for the device body, but would fade UI colors.
+      mat.toneMapped = false;
+      mat.needsUpdate = true;
+      return mat;
+    }
+
+    return new THREE.MeshBasicMaterial({
+      name: 'Uploaded screen',
+      map: tex,
+      side: THREE.FrontSide,
+      toneMapped: false,
+    });
+  };
+
+  currentScreenMaterial = Array.isArray(originalMat)
+    ? originalMat.map(makeMaterial)
+    : makeMaterial(originalMat);
+  screenMesh.material = currentScreenMaterial;
   currentTex = tex;
   return true;
 }
 
+function disposeCurrentScreenMaterial() {
+  if (Array.isArray(currentScreenMaterial)) currentScreenMaterial.forEach((mat) => mat.dispose());
+  else currentScreenMaterial?.dispose?.();
+  currentScreenMaterial = null;
+}
+
 function clearScreen() {
   if (!screenMesh || !originalMat) return;
+  disposeCurrentScreenMaterial();
   screenMesh.material = originalMat;
   currentTex?.dispose?.();
   currentTex = null;
@@ -214,20 +241,27 @@ function clearScreen() {
 async function exportPNG() {
   const w = Math.max(256, parseInt(exportW.value, 10) || 2048);
   const h = Math.max(256, parseInt(exportH.value, 10) || 2048);
+  const maxSide = Math.max(w, h);
+  const renderScale = maxSide <= 2048 ? 2 : maxSide <= 3072 ? 1.5 : 1;
+  const renderW = Math.round(w * renderScale);
+  const renderH = Math.round(h * renderScale);
   const oldSz = new THREE.Vector2(); renderer.getSize(oldSz);
   const oldPR = renderer.getPixelRatio();
   const oldAsp = camera.aspect;
   const oldBg = scene.background;
   scene.background = null;
   renderer.setClearColor(0x000000, 0);
-  camera.aspect = w / h;
+  camera.aspect = renderW / renderH;
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(1);
-  renderer.setSize(w, h, false);
+  renderer.setSize(renderW, renderH, false);
   renderer.render(scene, camera);
   const out = document.createElement('canvas');
   out.width = w; out.height = h;
-  out.getContext('2d').drawImage(canvas, 0, 0, w, h);
+  const outCtx = out.getContext('2d');
+  outCtx.imageSmoothingEnabled = true;
+  outCtx.imageSmoothingQuality = 'high';
+  outCtx.drawImage(canvas, 0, 0, w, h);
   const a = document.createElement('a');
   a.href = out.toDataURL('image/png');
   a.download = `mockup-${w}x${h}.png`;
@@ -248,157 +282,6 @@ function handleScreenFile(file) {
     const ok = applyScreenTex(tex);
     if (ok) toast('Screen applied', 'ok');
   }, undefined, () => toast('Failed to load image', 'err'));
-}
-
-function updateClock() { hsTime.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); }
-updateClock(); setInterval(updateClock, 10000);
-
-function roundedRectPath(ctx, x, y, w, h, r) {
-  const rr = Math.min(r, w * .5, h * .5);
-  ctx.beginPath(); ctx.moveTo(x + rr, y); ctx.arcTo(x + w, y, x + w, y + h, rr); ctx.arcTo(x + w, y + h, x, y + h, rr); ctx.arcTo(x, y + h, x, y, rr); ctx.arcTo(x, y, x + w, y, rr); ctx.closePath();
-}
-
-function loadImage(url) { return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = url; }); }
-
-async function resizeToSquarePng(file, size = 1024) {
-  const url = URL.createObjectURL(file);
-  const img = await loadImage(url);
-  URL.revokeObjectURL(url);
-  const cvs = document.createElement('canvas');
-  cvs.width = cvs.height = size;
-  const ctx = cvs.getContext('2d');
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, size, size);
-  const s = Math.min(img.width, img.height);
-  const sx = Math.floor((img.width - s) / 2);
-  const sy = Math.floor((img.height - s) / 2);
-  ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
-  return { dataUrl: cvs.toDataURL('image/png') };
-}
-
-function updateIconCount() { iconCount.textContent = `${ICONS.length} icon${ICONS.length === 1 ? '' : 's'}`; }
-function updateIconActions() { iconActions.style.display = activeIconId ? 'flex' : 'none'; }
-
-function renderIconList() {
-  iconList.innerHTML = '';
-  ICONS.forEach(icon => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = `icon-item${icon.id === activeIconId ? ' active' : ''}`;
-    const img = document.createElement('img'); img.src = icon.dataUrl; img.alt = icon.name;
-    const del = document.createElement('span'); del.className = 'icon-del'; del.textContent = '×';
-    const label = document.createElement('span'); label.className = 'icon-name'; label.textContent = icon.name;
-    item.append(img, del, label);
-    item.addEventListener('click', () => { activeIconId = activeIconId === icon.id ? null : icon.id; renderIconList(); updateIconActions(); });
-    del.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const idx = ICONS.findIndex(x => x.id === icon.id);
-      if (idx >= 0) ICONS.splice(idx, 1);
-      if (activeIconId === icon.id) activeIconId = null;
-      renderIconList(); updateIconCount(); updateIconActions(); renderHomescreenPreview();
-      toast('Icon removed');
-    });
-    iconList.appendChild(item);
-  });
-}
-
-function renderHomescreenPreview() {
-  hsGrid.innerHTML = '';
-  hsDock.innerHTML = '';
-  for (let i = 0; i < 8; i++) {
-    const wrap = document.createElement('div'); wrap.className = 'hs-icon-wrap';
-    const iconDiv = document.createElement('div'); iconDiv.className = 'hs-icon';
-    if (ICONS[i]) {
-      const img = document.createElement('img'); img.src = ICONS[i].dataUrl; img.alt = ICONS[i].name; iconDiv.appendChild(img);
-      const lbl = document.createElement('div'); lbl.className = 'hs-icon-lbl'; lbl.textContent = ICONS[i].name;
-      wrap.append(iconDiv, lbl);
-    } else { iconDiv.className = 'hs-icon-empty'; wrap.appendChild(iconDiv); }
-    hsGrid.appendChild(wrap);
-  }
-  for (let i = 0; i < 3; i++) {
-    const iconDiv = document.createElement('div'); iconDiv.className = 'hs-icon'; iconDiv.style.width = '32px'; iconDiv.style.height = '32px';
-    if (ICONS[i]) { const img = document.createElement('img'); img.src = ICONS[i].dataUrl; img.alt = ICONS[i].name; iconDiv.appendChild(img); }
-    hsDock.appendChild(iconDiv);
-  }
-}
-
-async function renderHomescreenCanvas(width = 1170, height = 2532) {
-  const canvas2 = document.createElement('canvas'); canvas2.width = width; canvas2.height = height;
-  const ctx = canvas2.getContext('2d');
-  const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, ICON_CFG.wallpaper); bg.addColorStop(.5, '#0f1624'); bg.addColorStop(1, '#1b1224');
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
-  const safeTop = Math.round(height * ICON_CFG.safeTopRatio);
-  const safeBottom = Math.round(height * ICON_CFG.safeBottomRatio);
-  const left = Math.round(width * ICON_CFG.leftPadRatio);
-  const right = Math.round(width * ICON_CFG.rightPadRatio);
-  const top = Math.round(height * ICON_CFG.topPadRatio) + safeTop;
-  const dockH = Math.round(height * ICON_CFG.dockHeightRatio);
-  const bottom = height - safeBottom - dockH;
-  const gapX = Math.round(width * ICON_CFG.iconGapRatio);
-  const gapY = Math.round(height * ICON_CFG.iconGapRatio);
-  const slotW = width - left - right;
-  const iconSize = Math.floor((slotW - gapX * (ICON_CFG.cols - 1)) / ICON_CFG.cols);
-  const radius = Math.round(iconSize * ICON_CFG.iconRadiusRatio);
-  const labelSize = Math.max(12, Math.round(iconSize * ICON_CFG.labelSizeRatio));
-  const rowStep = iconSize + Math.round(iconSize * ICON_CFG.labelGapRatio) + gapY + labelSize;
-  const totalGridH = ICON_CFG.rows * rowStep;
-  const startY = Math.max(top, Math.floor((bottom - totalGridH) * .42));
-  let idx = 0;
-  for (let row = 0; row < ICON_CFG.rows; row++) for (let col = 0; col < ICON_CFG.cols; col++) {
-    if (!ICONS[idx]) break;
-    const x = left + col * (iconSize + gapX), y = startY + row * rowStep;
-    const img = await loadImage(ICONS[idx].dataUrl);
-    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = Math.max(8, Math.round(iconSize * .08)); ctx.shadowOffsetY = Math.max(4, Math.round(iconSize * .05)); roundedRectPath(ctx, x, y, iconSize, iconSize, radius); ctx.fillStyle = 'rgba(255,255,255,.02)'; ctx.fill(); ctx.clip(); ctx.drawImage(img, x, y, iconSize, iconSize); ctx.restore();
-    ctx.save(); ctx.globalAlpha = .12; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; roundedRectPath(ctx, x + .5, y + .5, iconSize - 1, iconSize - 1, radius - 1); ctx.stroke(); ctx.restore();
-    ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.font = `${labelSize}px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(ICONS[idx].name, x + iconSize / 2, y + iconSize + Math.round(iconSize * ICON_CFG.labelGapRatio));
-    idx++;
-  }
-  const dockY = height - safeBottom - dockH + Math.round(dockH * .18);
-  const dockPadX = Math.round(width * .09);
-  const dockInnerW = width - dockPadX * 2;
-  const dockItemSize = Math.floor(Math.min(iconSize * .88, (dockInnerW - gapX * 3) / 4));
-  const dockX0 = Math.round((width - (dockItemSize * 4 + gapX * 3)) / 2);
-  const dockRadius = Math.round(dockItemSize * ICON_CFG.iconRadiusRatio);
-  ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.11)'; roundedRectPath(ctx, dockPadX, dockY - Math.round(dockItemSize * .18), width - dockPadX * 2, dockH - Math.round(dockItemSize * .08), 26); ctx.fill(); ctx.restore();
-  for (let i = 0; i < 4; i++) {
-    const icon = ICONS[i], x = dockX0 + i * (dockItemSize + gapX), y = dockY;
-    if (!icon) { ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.08)'; roundedRectPath(ctx, x, y, dockItemSize, dockItemSize, dockRadius); ctx.fill(); ctx.restore(); continue; }
-    const img = await loadImage(icon.dataUrl);
-    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = Math.max(7, Math.round(dockItemSize * .08)); ctx.shadowOffsetY = 3; roundedRectPath(ctx, x, y, dockItemSize, dockItemSize, dockRadius); ctx.fillStyle = 'rgba(255,255,255,.02)'; ctx.fill(); ctx.clip(); ctx.drawImage(img, x, y, dockItemSize, dockItemSize); ctx.restore();
-  }
-  return canvas2;
-}
-
-async function applyHomescreenToScreen() {
-  const canvas2 = await renderHomescreenCanvas();
-  const dataUrl = canvas2.toDataURL('image/png');
-  texLoader.load(dataUrl, (tex) => {
-    tex.colorSpace = THREE.SRGBColorSpace;
-    currentHomescreenTex?.dispose?.(); currentHomescreenTex = tex;
-    currentTex?.dispose?.(); currentTex = tex;
-    applyScreenTex(tex);
-    toast('Homescreen baked to screen', 'ok');
-  }, undefined, () => toast('Failed to bake homescreen', 'err'));
-}
-
-function bindIconUI() {
-  iconDropZone.addEventListener('dragover', e => { e.preventDefault(); iconDropZone.classList.add('over'); });
-  iconDropZone.addEventListener('dragleave', () => iconDropZone.classList.remove('over'));
-  iconDropZone.addEventListener('drop', async e => { e.preventDefault(); iconDropZone.classList.remove('over'); await addIconsFromFiles(e.dataTransfer.files); });
-  iconFileInput.addEventListener('change', async e => { await addIconsFromFiles(e.target.files); e.target.value = ''; });
-  applyIconToScreenBtn.addEventListener('click', applyHomescreenToScreen);
-  clearIconSelBtn.addEventListener('click', () => { activeIconId = null; renderIconList(); updateIconActions(); });
-}
-
-async function addIconsFromFiles(files) {
-  const arr = Array.from(files).filter(f => f.type.startsWith('image/'));
-  for (const file of arr) {
-    try {
-      const { dataUrl } = await resizeToSquarePng(file, 1024);
-      ICONS.push({ id: `icon_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: file.name.replace(/\.[^.]+$/, ''), dataUrl });
-    } catch { toast(`Failed: ${file.name}`, 'err'); }
-  }
-  renderIconList(); updateIconCount(); renderHomescreenPreview(); toast(`Added ${arr.length} icon${arr.length === 1 ? '' : 's'}`, 'ok');
 }
 
 function fitSegInit() {
@@ -426,19 +309,10 @@ document.getElementById('p1k').addEventListener('click', () => { exportW.value =
 document.getElementById('p2k').addEventListener('click', () => { exportW.value = 2048; exportH.value = 2048; });
 document.getElementById('p4k').addEventListener('click', () => { exportW.value = 4096; exportH.value = 4096; });
 exportBtn.addEventListener('click', exportPNG);
-window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); });
+window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(getPreviewPixelRatio()); });
 
 devRow.querySelectorAll('.dev-btn').forEach((btn) => btn.addEventListener('click', () => { const dev = DEVICES[btn.dataset.dev]; if (!dev) return; devRow.querySelectorAll('.dev-btn').forEach((b) => b.classList.remove('active')); btn.classList.add('active'); currentTex?.dispose?.(); currentTex = null; screenRot = 0; rotSlider.value = 0; rotVal.textContent = '0°'; loadModel(dev.file); }));
 orbitBtn.addEventListener('click', () => { const on = orbitBtn.classList.toggle('active'); panel.style.pointerEvents = on ? 'none' : ''; document.body.classList.toggle('orbit-mode', on); toast(on ? 'Orbit mode — panel disabled' : 'Panel re-enabled'); });
 
-hsToggleBtn.addEventListener('click', () => { const visible = hsPanel.classList.toggle('visible'); hsToggleBtn.classList.toggle('active', visible); });
-hsPanelClose.addEventListener('click', () => { hsPanel.classList.remove('visible'); hsToggleBtn.classList.remove('active'); });
-let dragging = false, dx = 0, dy = 0;
-document.getElementById('hsPanelHeader').addEventListener('mousedown', (e) => { dragging = true; const rect = hsPanel.getBoundingClientRect(); dx = e.clientX - rect.left; dy = e.clientY - rect.top; });
-document.addEventListener('mousemove', (e) => { if (!dragging) return; hsPanel.style.left = (e.clientX - dx) + 'px'; hsPanel.style.top = (e.clientY - dy) + 'px'; hsPanel.style.right = 'auto'; });
-document.addEventListener('mouseup', () => { dragging = false; });
-
-window.addEventListener('applyIconToScreen', (e) => { const { dataUrl, name } = e.detail; texLoader.load(dataUrl, (tex) => { currentHomescreenTex?.dispose?.(); currentHomescreenTex = tex; currentTex?.dispose?.(); currentTex = tex; applyScreenTex(tex); toast(`Homescreen applied from ${name}`, 'ok'); }); });
-
-bindIconUI(); updateIconCount(); renderHomescreenPreview(); applyBg(); loadModel(DEVICES.iphone.file);
+applyBg(); loadModel(DEVICES.iphone.file);
 (function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); })();
