@@ -33,6 +33,8 @@ const DEVICES = {
   watch: { file: '/apple_watch_ultra_-_orange.glb', label: 'Watch' },
   macbook: { file: '/macbook_pro_m3_16_inch_2024.glb', label: 'MacBook' },
 };
+const DEFAULT_FIT = 'stretch';
+const DEFAULT_SCREEN_ROT = 180;
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -78,8 +80,8 @@ let screenMesh = null;
 let originalMat = null;
 let currentTex = null;
 let currentScreenMaterial = null;
-let currentFit = 'cover';
-let screenRot = 0;
+let currentFit = DEFAULT_FIT;
+let screenRot = DEFAULT_SCREEN_ROT;
 let bgMode = 'transparent';
 
 function toast(msg, type = '', ms = 2600) {
@@ -290,8 +292,14 @@ function handleScreenFile(file) {
   }, undefined, () => toast('Failed to load image', 'err'));
 }
 
+function setFit(mode) {
+  currentFit = mode;
+  fitSeg.querySelectorAll('button').forEach((btn) => btn.classList.toggle('on', btn.dataset.v === currentFit));
+}
+
 function fitSegInit() {
-  fitSeg.querySelectorAll('button').forEach((btn) => btn.addEventListener('click', () => { fitSeg.querySelectorAll('button').forEach((b) => b.classList.remove('on')); btn.classList.add('on'); currentFit = btn.dataset.v; if (currentTex) applyScreenTex(currentTex); }));
+  setFit(currentFit);
+  fitSeg.querySelectorAll('button').forEach((btn) => btn.addEventListener('click', () => { setFit(btn.dataset.v); if (currentTex) applyScreenTex(currentTex); }));
 }
 
 const SNAP_PTS = [-180, -90, 0, 90, 180]; const SNAP_DIST = 8;
@@ -309,6 +317,8 @@ canvas.addEventListener('dragover', (e) => e.preventDefault());
 canvas.addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f && /\.(png|jpe?g|webp)$/i.test(f.name)) handleScreenFile(f); });
 
 fitSegInit();
+rotSlider.value = DEFAULT_SCREEN_ROT;
+rotVal.textContent = `${DEFAULT_SCREEN_ROT}°`;
 rotSlider.addEventListener('input', () => { let val = parseInt(rotSlider.value, 10); const snapped = nearestSnap(val); if (snapped !== val) { val = snapped; rotSlider.value = snapped; } screenRot = val; rotVal.textContent = val + '°'; if (currentTex) applyScreenTex(currentTex); });
 
 document.getElementById('p1k').addEventListener('click', () => { exportW.value = 1024; exportH.value = 1024; });
@@ -317,7 +327,7 @@ document.getElementById('p4k').addEventListener('click', () => { exportW.value =
 exportBtn.addEventListener('click', exportPNG);
 window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(getPreviewPixelRatio()); });
 
-devRow.querySelectorAll('.dev-btn').forEach((btn) => btn.addEventListener('click', () => { const dev = DEVICES[btn.dataset.dev]; if (!dev) return; devRow.querySelectorAll('.dev-btn').forEach((b) => b.classList.remove('active')); btn.classList.add('active'); currentTex?.dispose?.(); currentTex = null; screenRot = 0; rotSlider.value = 0; rotVal.textContent = '0°'; loadModel(dev.file); }));
+devRow.querySelectorAll('.dev-btn').forEach((btn) => btn.addEventListener('click', () => { const dev = DEVICES[btn.dataset.dev]; if (!dev) return; devRow.querySelectorAll('.dev-btn').forEach((b) => b.classList.remove('active')); btn.classList.add('active'); currentTex?.dispose?.(); currentTex = null; setFit(DEFAULT_FIT); screenRot = DEFAULT_SCREEN_ROT; rotSlider.value = DEFAULT_SCREEN_ROT; rotVal.textContent = `${DEFAULT_SCREEN_ROT}°`; loadModel(dev.file); }));
 orbitBtn.addEventListener('click', () => { const on = orbitBtn.classList.toggle('active'); panel.style.pointerEvents = on ? 'none' : ''; document.body.classList.toggle('orbit-mode', on); toast(on ? 'Orbit mode — panel disabled' : 'Panel re-enabled'); });
 
 applyBg(); loadModel(DEVICES.iphone.file);
