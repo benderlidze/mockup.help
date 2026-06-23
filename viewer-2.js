@@ -246,9 +246,53 @@ function clearScreen() {
   toast('Screen cleared');
 }
 
+function getAlphaBounds(ctx, width, height) {
+  const pixels = ctx.getImageData(0, 0, width, height).data;
+  const alphaThreshold = 2;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y++) {
+    const row = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      if (pixels[row + x * 4 + 3] <= alphaThreshold) continue;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  if (maxX < minX || maxY < minY) return null;
+  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+}
+
+function cropTransparentCanvas(source, sourceCtx) {
+  const bounds = getAlphaBounds(sourceCtx, source.width, source.height);
+  if (!bounds || (bounds.width === source.width && bounds.height === source.height)) return source;
+
+  const cropped = document.createElement('canvas');
+  cropped.width = bounds.width;
+  cropped.height = bounds.height;
+  cropped.getContext('2d').drawImage(
+    source,
+    bounds.x,
+    bounds.y,
+    bounds.width,
+    bounds.height,
+    0,
+    0,
+    bounds.width,
+    bounds.height,
+  );
+  return cropped;
+}
+
 async function exportPNG() {
-  const w = Math.max(256, parseInt(exportW.value, 10) || 2048);
-  const h = Math.max(256, parseInt(exportH.value, 10) || 2048);
+  let w = Math.max(256, parseInt(exportW.value, 10) || 2048);
+  let h = Math.max(256, parseInt(exportH.value, 10) || 2048);
   const maxSide = Math.max(w, h);
   const renderScale = maxSide <= 2048 ? 2 : maxSide <= 3072 ? 1.5 : 1;
   const renderW = Math.round(w * renderScale);
@@ -270,9 +314,12 @@ async function exportPNG() {
   outCtx.imageSmoothingEnabled = true;
   outCtx.imageSmoothingQuality = 'high';
   outCtx.drawImage(canvas, 0, 0, w, h);
+  const downloadCanvas = cropTransparentCanvas(out, outCtx);
+  w = downloadCanvas.width;
+  h = downloadCanvas.height;
   const a = document.createElement('a');
-  a.href = out.toDataURL('image/png');
-  a.download = `mockup-${w}x${h}.png`;
+  a.href = downloadCanvas.toDataURL('image/png');
+  a.download = `mockup-${downloadCanvas.width}x${downloadCanvas.height}.png`;
   a.click();
   camera.aspect = oldAsp; camera.updateProjectionMatrix();
   renderer.setPixelRatio(oldPR);
