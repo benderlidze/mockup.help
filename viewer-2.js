@@ -186,34 +186,40 @@ function applyScreenTex(tex) {
   fitTex(tex, currentFit, screenRot);
   disposeCurrentScreenMaterial();
 
-  const makeMaterial = (source) => {
-    // Preserve the model's glass response (roughness, clearcoat and
-    // reflections), while the screenshot supplies the display's own light.
-    if (source?.isMeshStandardMaterial) {
-      const mat = source.clone();
-      mat.name = 'Uploaded screen with glass';
-      mat.map = null;
-      mat.color.set(0x000000);
-      mat.emissiveMap = tex;
-      mat.emissive.set(0xffffff);
-      mat.emissiveIntensity = 1;
-      mat.transparent = false;
-      mat.opacity = 1;
-      mat.depthWrite = true;
-      mat.side = THREE.FrontSide;
-      // ACES remains enabled for the device body, but would fade UI colors.
-      mat.toneMapped = false;
-      mat.needsUpdate = true;
-      return mat;
-    }
+  // const makeMaterial = (source) => {
+  //   // Preserve the model's glass response (roughness, clearcoat and
+  //   // reflections), while the screenshot supplies the display's own light.
+  //   if (source?.isMeshStandardMaterial) {
+  //     const mat = source.clone();
+  //     mat.name = 'Uploaded screen with glass';
+  //     mat.map = null;
+  //     mat.color.set(0x000000);
+  //     mat.emissiveMap = tex;
+  //     mat.emissive.set(0xffffff);
+  //     mat.emissiveIntensity = 1;
+  //     mat.transparent = false;
+  //     mat.opacity = 1;
+  //     mat.depthWrite = true;
+  //     mat.side = THREE.FrontSide;
+  //     // ACES remains enabled for the device body, but would fade UI colors.
+  //     mat.toneMapped = false;
+  //     mat.needsUpdate = true;
+  //     return mat;
+  //   }
 
-    return new THREE.MeshBasicMaterial({
-      name: 'Uploaded screen',
-      map: tex,
-      side: THREE.FrontSide,
-      toneMapped: false,
-    });
-  };
+  //   return new THREE.MeshBasicMaterial({
+  //     name: 'Uploaded screen',
+  //     map: tex,
+  //     side: THREE.FrontSide,
+  //     toneMapped: false,
+  //   });
+  // };
+  const makeMaterial = (_source) => new THREE.MeshBasicMaterial({
+    name: 'Uploaded screen',
+    map: tex,
+    side: THREE.FrontSide,
+    toneMapped: false,
+  });
 
   currentScreenMaterial = Array.isArray(originalMat)
     ? originalMat.map(makeMaterial)
@@ -315,4 +321,4 @@ devRow.querySelectorAll('.dev-btn').forEach((btn) => btn.addEventListener('click
 orbitBtn.addEventListener('click', () => { const on = orbitBtn.classList.toggle('active'); panel.style.pointerEvents = on ? 'none' : ''; document.body.classList.toggle('orbit-mode', on); toast(on ? 'Orbit mode — panel disabled' : 'Panel re-enabled'); });
 
 applyBg(); loadModel(DEVICES.iphone.file);
-(function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); })();
+(function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); })();
